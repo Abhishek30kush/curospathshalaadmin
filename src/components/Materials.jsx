@@ -16,8 +16,10 @@ const Materials = () => {
   const [newMaterial, setNewMaterial] = useState({
     title: '',
     chapterName: '',
+    lectureName: '',
     type: 'pdf',
     url: '',
+    textContent: '',
     description: '',
     subject: 'General'
   });
@@ -33,11 +35,13 @@ const Materials = () => {
   const [newClassMaterial, setNewClassMaterial] = useState({
     title: '',
     chapterName: '',
+    lectureName: '',
     category: 'Class 9',
     subject: 'Mathematics',
     materialType: 'Notes',
     type: 'pdf',
     url: '',
+    textContent: '',
     description: ''
   });
 
@@ -135,15 +139,17 @@ const Materials = () => {
         courseId: selectedCourse,
         title: newMaterial.title,
         chapterName: newMaterial.chapterName || 'General',
+        lectureName: newMaterial.lectureName || '',
         type: newMaterial.type || 'pdf',
         subject: newMaterial.subject || 'General',
-        url: newMaterial.url,
+        url: newMaterial.url || '',
+        textContent: newMaterial.textContent || '',
         description: newMaterial.description,
         createdAt: new Date().toISOString()
       });
       const course = coursesList.find(c => c.id === selectedCourse);
       const defaultSub = course ? getSubjectsList(course.category)[0] : 'General';
-      setNewMaterial({ title: '', chapterName: '', type: 'pdf', url: '', description: '', subject: defaultSub });
+      setNewMaterial({ title: '', chapterName: '', lectureName: '', type: 'pdf', url: '', textContent: '', description: '', subject: defaultSub });
       setShowAddForm(false);
       fetchMaterials(selectedCourse);
     } catch (err) {
@@ -163,11 +169,13 @@ const Materials = () => {
       await addDoc(collection(db, "studyMaterials"), {
         title: newClassMaterial.title,
         chapterName: newClassMaterial.chapterName || 'General',
+        lectureName: newClassMaterial.lectureName || '',
         category: newClassMaterial.category,
         subject: newClassMaterial.subject,
         materialType: newClassMaterial.materialType,
         type: newClassMaterial.type,
-        url: newClassMaterial.url,
+        url: newClassMaterial.url || '',
+        textContent: newClassMaterial.textContent || '',
         description: newClassMaterial.description,
         createdAt: new Date().toISOString()
       });
@@ -176,7 +184,9 @@ const Materials = () => {
         ...prev,
         title: '',
         chapterName: '',
+        lectureName: '',
         url: '',
+        textContent: '',
         description: ''
       }));
       setShowAddForm(false);
@@ -363,7 +373,7 @@ const Materials = () => {
           <h3 className="text-xl font-bold text-slate-700 mb-6">Upload New Course Material</h3>
           {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <form onSubmit={handleAddCourseMaterial} className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.title} onChange={(e) => setNewMaterial({...newMaterial, title: e.target.value})} placeholder="e.g. Kinematics Lecture 1 Notes" />
@@ -372,6 +382,10 @@ const Materials = () => {
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Chapter Name</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.chapterName} onChange={(e) => setNewMaterial({...newMaterial, chapterName: e.target.value})} placeholder="e.g. Chapter 1: Kinematics" />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Lecture Name (Optional)</label>
+                <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.lectureName} onChange={(e) => setNewMaterial({...newMaterial, lectureName: e.target.value})} placeholder="e.g. Lecture 1" />
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -379,6 +393,7 @@ const Materials = () => {
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newMaterial.type} onChange={(e) => setNewMaterial({...newMaterial, type: e.target.value})}>
                   <option value="pdf">PDF Note</option>
                   <option value="video">YouTube Video</option>
+                  <option value="text">📝 Direct Note (Text)</option>
                 </select>
               </div>
               <div>
@@ -392,10 +407,19 @@ const Materials = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">
-                {newMaterial.type === 'pdf' ? 'PDF Link (Drive / Storage URL)' : 'YouTube Video Link'}
-              </label>
-              <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.url} onChange={(e) => setNewMaterial({...newMaterial, url: e.target.value})} placeholder="https://..." />
+              {newMaterial.type === 'text' ? (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Note Content</label>
+                  <textarea required rows="6" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm whitespace-pre-wrap" value={newMaterial.textContent} onChange={(e) => setNewMaterial({...newMaterial, textContent: e.target.value})} placeholder="Type your notes here..."></textarea>
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">
+                    {newMaterial.type === 'pdf' ? 'PDF Link (Drive / Storage URL)' : 'YouTube Video Link'}
+                  </label>
+                  <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.url} onChange={(e) => setNewMaterial({...newMaterial, url: e.target.value})} placeholder="https://..." />
+                </>
+              )}
             </div>
 
             <div>
@@ -415,7 +439,7 @@ const Materials = () => {
           <h3 className="text-xl font-bold text-slate-700 mb-6">Upload Class Study Material</h3>
           {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <form onSubmit={handleAddClassMaterial} className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.title} onChange={(e) => setNewClassMaterial({...newClassMaterial, title: e.target.value})} placeholder="e.g. Class 9 Trigonometry Question Sheet" />
@@ -423,6 +447,10 @@ const Materials = () => {
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Chapter Name</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.chapterName} onChange={(e) => setNewClassMaterial({...newClassMaterial, chapterName: e.target.value})} placeholder="e.g. Chapter 1: Trigonometry" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Lecture Name (Optional)</label>
+                <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.lectureName} onChange={(e) => setNewClassMaterial({...newClassMaterial, lectureName: e.target.value})} placeholder="e.g. Lecture 1" />
               </div>
             </div>
 
@@ -456,15 +484,25 @@ const Materials = () => {
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" value={newClassMaterial.type} onChange={(e) => setNewClassMaterial({...newClassMaterial, type: e.target.value})}>
                   <option value="pdf">📄 PDF Note/Sheet</option>
                   <option value="video">🎥 YouTube Video Link</option>
+                  <option value="text">📝 Direct Note (Text)</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">
-                {newClassMaterial.type === 'pdf' ? 'PDF Drive / Storage Link' : 'YouTube Video Link'}
-              </label>
-              <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.url} onChange={(e) => setNewClassMaterial({...newClassMaterial, url: e.target.value})} placeholder="https://..." />
+              {newClassMaterial.type === 'text' ? (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Note Content</label>
+                  <textarea required rows="6" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm whitespace-pre-wrap" value={newClassMaterial.textContent} onChange={(e) => setNewClassMaterial({...newClassMaterial, textContent: e.target.value})} placeholder="Type your notes here..."></textarea>
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">
+                    {newClassMaterial.type === 'pdf' ? 'PDF Drive / Storage Link' : 'YouTube Video Link'}
+                  </label>
+                  <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.url} onChange={(e) => setNewClassMaterial({...newClassMaterial, url: e.target.value})} placeholder="https://..." />
+                </>
+              )}
             </div>
 
             <div>
@@ -517,6 +555,10 @@ const Materials = () => {
                             <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">Invalid Video URL</div>
                           )}
                         </div>
+                      ) : material.type === 'text' ? (
+                        <div className="h-40 w-full bg-orange-50 flex items-center justify-center">
+                          <span className="text-5xl">📝</span>
+                        </div>
                       ) : (
                         <div className="h-40 w-full bg-red-50 flex items-center justify-center">
                           <svg className="w-16 h-16 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
@@ -526,7 +568,7 @@ const Materials = () => {
                       <div className="p-6">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : material.type === 'text' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
                               {material.type}
                             </span>
                             {material.subject && (
@@ -541,6 +583,13 @@ const Materials = () => {
                           </button>
                         </div>
                         <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
+                        {material.lectureName && (
+                          <div className="mb-2">
+                            <span className="inline-block bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold border border-slate-200">
+                              {material.lectureName}
+                            </span>
+                          </div>
+                        )}
                         {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
                         
                         {material.type === 'pdf' && (
@@ -607,6 +656,13 @@ const Materials = () => {
                             </button>
                           </div>
                           <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
+                          {material.lectureName && (
+                            <div className="mb-2">
+                              <span className="inline-block bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold border border-slate-200">
+                                {material.lectureName}
+                              </span>
+                            </div>
+                          )}
                           {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
                         </div>
                       </div>
@@ -616,6 +672,10 @@ const Materials = () => {
                           <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
                             Open PDF Document &rarr;
                           </a>
+                        ) : material.type === 'text' ? (
+                          <span className="inline-block mt-4 text-sm font-semibold text-slate-500">
+                            Contains Direct Text Note
+                          </span>
                         ) : (
                           <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
                             Watch Video &rarr;
