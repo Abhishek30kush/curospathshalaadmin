@@ -52,7 +52,12 @@ const TestSeries = () => {
         }
       }
 
-      resolvedList.sort((a, b) => b.score - a.score);
+      resolvedList.sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return (a.timeTakenSeconds || Infinity) - (b.timeTakenSeconds || Infinity);
+      });
       setLeaderboardData(resolvedList);
     } catch (err) {
       console.error("Error fetching leaderboard: ", err);
@@ -351,7 +356,12 @@ const TestSeries = () => {
                         </div>
                         <div className="font-semibold text-slate-700">{item.studentName}</div>
                       </div>
-                      <div className="font-bold text-indigo-600">{item.score} <span className="text-xs text-slate-400 font-normal">pts</span></div>
+                      <div className="text-right">
+                        <div className="font-bold text-indigo-600">{item.score} <span className="text-xs text-slate-400 font-normal">pts</span></div>
+                        {item.timeTakenSeconds !== undefined && (
+                          <div className="text-xs text-slate-400 font-medium">{Math.floor(item.timeTakenSeconds / 60)}m {item.timeTakenSeconds % 60}s</div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
