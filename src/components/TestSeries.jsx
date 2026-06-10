@@ -7,7 +7,7 @@ const TestSeries = () => {
   const [testSeries, setTestSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newSeries, setNewSeries] = useState({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '' });
+  const [newSeries, setNewSeries] = useState({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180' });
   const navigate = useNavigate();
 
   const [filterCategory, setFilterCategory] = useState('All');
@@ -65,9 +65,11 @@ const TestSeries = () => {
         category: newSeries.category || 'IIT-JEE',
         subject: newSeries.subject || 'Full Syllabus',
         description: newSeries.description,
+        isTimed: newSeries.isTimed,
+        duration: newSeries.isTimed ? Number(newSeries.duration) : null,
         createdAt: new Date().toISOString()
       });
-      setNewSeries({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '' });
+      setNewSeries({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180' });
       setShowAddForm(false);
       fetchTestSeries();
     } catch (err) {
@@ -153,6 +155,34 @@ const TestSeries = () => {
                 </select>
               </div>
             </div>
+            {/* Timing Option Fields */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                  checked={newSeries.isTimed} 
+                  onChange={(e) => setNewSeries({...newSeries, isTimed: e.target.checked})} 
+                />
+                <span className="text-sm font-semibold text-slate-700">Enable Test Timer / Duration?</span>
+              </label>
+
+              {newSeries.isTimed && (
+                <div className="flex items-center gap-2 animate-fadeIn">
+                  <label className="text-sm font-semibold text-slate-600">Duration:</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min="1"
+                    className="w-24 px-3 py-1 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold text-slate-800"
+                    value={newSeries.duration} 
+                    onChange={(e) => setNewSeries({...newSeries, duration: e.target.value})} 
+                  />
+                  <span className="text-sm text-slate-500 font-medium">Minutes</span>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1">Description</label>
               <textarea required rows="2" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" value={newSeries.description} onChange={(e) => setNewSeries({...newSeries, description: e.target.value})} placeholder="Brief description..."></textarea>
@@ -208,7 +238,7 @@ const TestSeries = () => {
           {filteredSeries.map(series => (
             <div key={series.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition">
               <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap items-center">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                     (series.category === 'JEE' || series.category === 'IIT-JEE') ? 'bg-blue-100 text-blue-700' :
                     (series.category === 'NEET') ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
@@ -220,6 +250,11 @@ const TestSeries = () => {
                       {series.subject}
                     </span>
                   )}
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
+                    series.isTimed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                  }`}>
+                    ⏱️ {series.isTimed ? `${series.duration} min` : 'Practice'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-slate-400 text-sm">{series.createdAt ? new Date(series.createdAt).toLocaleDateString() : ''}</span>
