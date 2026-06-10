@@ -13,6 +13,8 @@ import Students from './components/Students';
 import Notifications from './components/Notifications';
 import Earnings from './components/Earnings';
 import PapersBundles from './components/PapersBundles';
+import QuickNoteWidget from './components/QuickNoteWidget';
+
 
 const Sidebar = ({ userRole }) => {
   const handleLogout = () => {
@@ -263,6 +265,9 @@ const Dashboard = ({ userRole }) => {
           </div>
         ))}
       </div>
+
+      <QuickNoteWidget />
+
 
       {/* Superadmin Section: Sub-Admins Management */}
       {userRole === 'superadmin' && (
