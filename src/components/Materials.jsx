@@ -15,6 +15,7 @@ const Materials = () => {
   // Course Material Form State
   const [newMaterial, setNewMaterial] = useState({
     title: '',
+    chapterName: '',
     type: 'pdf',
     url: '',
     description: '',
@@ -31,6 +32,7 @@ const Materials = () => {
   // Class Material Form State
   const [newClassMaterial, setNewClassMaterial] = useState({
     title: '',
+    chapterName: '',
     category: 'Class 9',
     subject: 'Mathematics',
     materialType: 'Notes',
@@ -132,6 +134,7 @@ const Materials = () => {
       await addDoc(collection(db, "materials"), {
         courseId: selectedCourse,
         title: newMaterial.title,
+        chapterName: newMaterial.chapterName || 'General',
         type: newMaterial.type || 'pdf',
         subject: newMaterial.subject || 'General',
         url: newMaterial.url,
@@ -140,7 +143,7 @@ const Materials = () => {
       });
       const course = coursesList.find(c => c.id === selectedCourse);
       const defaultSub = course ? getSubjectsList(course.category)[0] : 'General';
-      setNewMaterial({ title: '', type: 'pdf', url: '', description: '', subject: defaultSub });
+      setNewMaterial({ title: '', chapterName: '', type: 'pdf', url: '', description: '', subject: defaultSub });
       setShowAddForm(false);
       fetchMaterials(selectedCourse);
     } catch (err) {
@@ -159,6 +162,7 @@ const Materials = () => {
     try {
       await addDoc(collection(db, "studyMaterials"), {
         title: newClassMaterial.title,
+        chapterName: newClassMaterial.chapterName || 'General',
         category: newClassMaterial.category,
         subject: newClassMaterial.subject,
         materialType: newClassMaterial.materialType,
@@ -171,6 +175,7 @@ const Materials = () => {
       setNewClassMaterial(prev => ({
         ...prev,
         title: '',
+        chapterName: '',
         url: '',
         description: ''
       }));
@@ -238,6 +243,16 @@ const Materials = () => {
   const filteredCourseMaterials = materials.filter(m => {
     return courseFilterSubject === 'All' || m.subject === courseFilterSubject;
   });
+
+  const groupMaterialsByChapter = (materialsList) => {
+    const grouped = {};
+    materialsList.forEach(m => {
+      const ch = m.chapterName || 'General';
+      if (!grouped[ch]) grouped[ch] = [];
+      grouped[ch].push(m);
+    });
+    return grouped;
+  };
 
   return (
     <div className="p-10 w-full max-w-6xl mx-auto">
@@ -348,11 +363,17 @@ const Materials = () => {
           <h3 className="text-xl font-bold text-slate-700 mb-6">Upload New Course Material</h3>
           {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <form onSubmit={handleAddCourseMaterial} className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.title} onChange={(e) => setNewMaterial({...newMaterial, title: e.target.value})} placeholder="e.g. Kinematics Lecture 1 Notes" />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Chapter Name</label>
+                <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.chapterName} onChange={(e) => setNewMaterial({...newMaterial, chapterName: e.target.value})} placeholder="e.g. Chapter 1: Kinematics" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Type</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newMaterial.type} onChange={(e) => setNewMaterial({...newMaterial, type: e.target.value})}>
@@ -394,11 +415,18 @@ const Materials = () => {
           <h3 className="text-xl font-bold text-slate-700 mb-6">Upload Class Study Material</h3>
           {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <form onSubmit={handleAddClassMaterial} className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.title} onChange={(e) => setNewClassMaterial({...newClassMaterial, title: e.target.value})} placeholder="e.g. Class 9 Trigonometry Question Sheet" />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Chapter Name</label>
+                <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.chapterName} onChange={(e) => setNewClassMaterial({...newClassMaterial, chapterName: e.target.value})} placeholder="e.g. Chapter 1: Trigonometry" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Class / Category</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newClassMaterial.category} onChange={(e) => handleClassCategoryChange(e.target.value)}>
@@ -407,9 +435,6 @@ const Materials = () => {
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" value={newClassMaterial.subject} onChange={(e) => setNewClassMaterial({...newClassMaterial, subject: e.target.value})}>
@@ -470,55 +495,62 @@ const Materials = () => {
             <p className="text-xl text-slate-500">No course materials found matching the selected filters.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourseMaterials.map(material => (
-              <div key={material.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition">
-                {material.type === 'video' ? (
-                  <div className="aspect-video w-full bg-slate-900">
-                    {getYouTubeId(material.url) ? (
-                      <iframe 
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${getYouTubeId(material.url)}`}
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">Invalid Video URL</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="h-40 w-full bg-red-50 flex items-center justify-center">
-                    <svg className="w-16 h-16 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
-                  </div>
-                )}
-                
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                        {material.type}
-                      </span>
-                      {material.subject && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
-                          {material.subject}
-                        </span>
+          <div className="flex flex-col gap-10">
+            {Object.entries(groupMaterialsByChapter(filteredCourseMaterials)).sort(([a], [b]) => a.localeCompare(b)).map(([chapter, mats]) => (
+              <div key={chapter}>
+                <h3 className="text-2xl font-bold text-slate-800 mb-6 border-b pb-3 border-slate-200">{chapter}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {mats.map(material => (
+                    <div key={material.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition">
+                      {material.type === 'video' ? (
+                        <div className="aspect-video w-full bg-slate-900">
+                          {getYouTubeId(material.url) ? (
+                            <iframe 
+                              className="w-full h-full"
+                              src={`https://www.youtube.com/embed/${getYouTubeId(material.url)}`}
+                              title="YouTube video player"
+                              frameBorder="0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            ></iframe>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">Invalid Video URL</div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-40 w-full bg-red-50 flex items-center justify-center">
+                          <svg className="w-16 h-16 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
+                        </div>
                       )}
-                      <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
+                      
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                              {material.type}
+                            </span>
+                            {material.subject && (
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
+                                {material.subject}
+                              </span>
+                            )}
+                            <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
+                          </div>
+                          <button onClick={() => handleDeleteMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition shrink-0" title="Delete Material">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
+                        {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
+                        
+                        {material.type === 'pdf' && (
+                          <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-2 text-sm font-semibold text-teal-600 hover:text-teal-700">
+                            Open PDF Document &rarr;
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => handleDeleteMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition shrink-0" title="Delete Material">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
-                  {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
-                  
-                  {material.type === 'pdf' && (
-                    <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-2 text-sm font-semibold text-teal-600 hover:text-teal-700">
-                      Open PDF Document &rarr;
-                    </a>
-                  )}
+                  ))}
                 </div>
               </div>
             ))}
@@ -530,61 +562,68 @@ const Materials = () => {
             <p className="text-xl text-slate-500">No study materials found for {classFilterCategory} {classFilterSubject !== 'All' ? `(${classFilterSubject})` : ''}.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClassMaterials.map(material => (
-              <div key={material.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
-                <div>
-                  {material.type === 'video' ? (
-                    <div className="aspect-video w-full bg-slate-900">
-                      {getYouTubeId(material.url) ? (
-                        <iframe 
-                          className="w-full h-full"
-                          src={`https://www.youtube.com/embed/${getYouTubeId(material.url)}`}
-                          title="YouTube video player"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        ></iframe>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">Invalid Video URL</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-40 w-full bg-indigo-50/50 flex items-center justify-center relative">
-                      <span className="text-6xl">📝</span>
-                      <span className="absolute bottom-3 right-3 text-xs font-bold bg-slate-800 text-white px-2 py-0.5 rounded shadow">
-                        {material.materialType}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
-                          {material.subject}
-                        </span>
-                        <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
+          <div className="flex flex-col gap-10">
+            {Object.entries(groupMaterialsByChapter(filteredClassMaterials)).sort(([a], [b]) => a.localeCompare(b)).map(([chapter, mats]) => (
+              <div key={chapter}>
+                <h3 className="text-2xl font-bold text-slate-800 mb-6 border-b pb-3 border-slate-200">{chapter}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {mats.map(material => (
+                    <div key={material.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
+                      <div>
+                        {material.type === 'video' ? (
+                          <div className="aspect-video w-full bg-slate-900">
+                            {getYouTubeId(material.url) ? (
+                              <iframe 
+                                className="w-full h-full"
+                                src={`https://www.youtube.com/embed/${getYouTubeId(material.url)}`}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              ></iframe>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">Invalid Video URL</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-40 w-full bg-indigo-50/50 flex items-center justify-center relative">
+                            <span className="text-6xl">📝</span>
+                            <span className="absolute bottom-3 right-3 text-xs font-bold bg-slate-800 text-white px-2 py-0.5 rounded shadow">
+                              {material.materialType}
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className="p-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
+                                {material.subject}
+                              </span>
+                              <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
+                            </div>
+                            <button onClick={() => handleDeleteClassMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition shrink-0" title="Delete Class Material">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
+                          {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
+                        </div>
                       </div>
-                      <button onClick={() => handleDeleteClassMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition shrink-0" title="Delete Class Material">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
-                    {material.description && <p className="text-slate-500 text-sm line-clamp-2 mb-4">{material.description}</p>}
-                  </div>
-                </div>
 
-                <div className="px-6 pb-6 pt-0 border-t border-slate-50 mt-auto">
-                  {material.type === 'pdf' ? (
-                    <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
-                      Open PDF Document &rarr;
-                    </a>
-                  ) : (
-                    <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
-                      Watch Video &rarr;
-                    </a>
-                  )}
+                      <div className="px-6 pb-6 pt-0 border-t border-slate-50 mt-auto">
+                        {material.type === 'pdf' ? (
+                          <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
+                            Open PDF Document &rarr;
+                          </a>
+                        ) : (
+                          <a href={material.url} target="_blank" rel="noreferrer" className="inline-block mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700">
+                            Watch Video &rarr;
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
