@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, where, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 const TestSeries = () => {
@@ -15,6 +15,51 @@ const TestSeries = () => {
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [selectedSeriesTitle, setSelectedSeriesTitle] = useState('');
+
+  const handleViewLeaderboard = async (seriesId, title) => {
+    setSelectedSeriesTitle(title);
+    setShowLeaderboard(true);
+    setLeaderboardLoading(true);
+    try {
+      const q = query(collection(db, "userTests"), where("testSeriesId", "==", seriesId));
+      const qSnap = await getDocs(q);
+      const submissions = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const userBestScores = {};
+      submissions.forEach(sub => {
+        const uid = sub.userId;
+        if (!uid) return;
+        if (!userBestScores[uid] || sub.score > userBestScores[uid].score) {
+          userBestScores[uid] = sub;
+        }
+      });
+
+      const uniqueSubmissions = Object.values(userBestScores);
+      const resolvedList = [];
+
+      for (const sub of uniqueSubmissions) {
+        try {
+          const uDoc = await getDoc(doc(db, "users", sub.userId));
+          const name = uDoc.exists() ? (uDoc.data().name || uDoc.data().email || 'Student') : 'Student';
+          resolvedList.push({ ...sub, studentName: name });
+        } catch (e) {
+          resolvedList.push({ ...sub, studentName: 'Student' });
+        }
+      }
+
+      resolvedList.sort((a, b) => b.score - a.score);
+      setLeaderboardData(resolvedList);
+    } catch (err) {
+      console.error("Error fetching leaderboard: ", err);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
 
   const getSubjectsList = (cat) => {
     if (cat === 'Class 9' || cat === 'Class 10') {
@@ -266,13 +311,56 @@ const TestSeries = () => {
               <h3 className="text-xl font-bold text-slate-800 mb-2">{series.title}</h3>
               <p className="text-slate-600 text-sm line-clamp-2">{series.description}</p>
               
-              <div className="mt-6 flex justify-end items-center pt-4 border-t border-slate-100">
+              <div className="mt-6 flex justify-between items-center pt-4 border-t border-slate-100">
+                <button onClick={() => handleViewLeaderboard(series.id, series.title)} className="text-emerald-600 font-semibold text-sm hover:underline">🏆 Leaderboard</button>
                 <button onClick={() => navigate('/questions')} className="text-indigo-600 font-semibold text-sm hover:underline">Manage MCQs &rarr;</button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Leaderboard Modal */}
+      {showLeaderboard && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800">Test Leaderboard</h3>
+                <p className="text-slate-500 text-sm mt-1">{selectedSeriesTitle}</p>
+              </div>
+              <button onClick={() => setShowLeaderboard(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-white">
+              {leaderboardLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                </div>
+              ) : leaderboardData.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-500 font-medium">No students have taken this test yet.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {leaderboardData.map((item, idx) => (
+                    <div key={item.userId} className={`flex items-center justify-between p-4 rounded-xl border ${idx === 0 ? 'bg-amber-50 border-amber-200' : idx === 1 ? 'bg-slate-50 border-slate-200' : idx === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm ${idx === 0 ? 'bg-amber-200 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-orange-200 text-orange-800' : 'bg-slate-100 text-slate-500'}`}>
+                          {idx + 1}
+                        </div>
+                        <div className="font-semibold text-slate-700">{item.studentName}</div>
+                      </div>
+                      <div className="font-bold text-indigo-600">{item.score} <span className="text-xs text-slate-400 font-normal">pts</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
