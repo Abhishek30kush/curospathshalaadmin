@@ -459,7 +459,7 @@ const Questions = () => {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation</label>
+                <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation (optional)</label>
                 <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
                   {symbols.map(s => (
                     <button 
@@ -473,7 +473,7 @@ const Questions = () => {
                   ))}
                 </div>
               </div>
-              <textarea id="new-question-solution" required rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.solution} onChange={(e) => setNewQuestion({...newQuestion, solution: e.target.value})} placeholder="Step-by-step solution..."></textarea>
+              <textarea id="new-question-solution" rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.solution} onChange={(e) => setNewQuestion({...newQuestion, solution: e.target.value})} placeholder="Step-by-step solution..."></textarea>
             </div>
 
             <button type="submit" className="mt-2 self-start bg-purple-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-purple-700 transition shadow-sm">Save Question</button>
@@ -553,10 +553,12 @@ const Questions = () => {
                     ))}
                   </div>
 
-                  <div className="bg-slate-50 p-4 rounded-xl">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Solution</p>
-                    <p className="text-sm text-slate-700 leading-relaxed">{q.solution}</p>
-                  </div>
+                  {q.solution && (
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Solution</p>
+                      <p className="text-sm text-slate-700 leading-relaxed">{q.solution}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -654,7 +656,7 @@ const Questions = () => {
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation</label>
+                  <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation (optional)</label>
                   <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
                     {symbols.map(s => (
                       <button 
@@ -668,7 +670,7 @@ const Questions = () => {
                     ))}
                   </div>
                 </div>
-                <textarea id="edit-question-solution" required rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={editingQuestion.solution} onChange={(e) => setEditingQuestion({...editingQuestion, solution: e.target.value})}></textarea>
+                <textarea id="edit-question-solution" rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={editingQuestion.solution} onChange={(e) => setEditingQuestion({...editingQuestion, solution: e.target.value})}></textarea>
               </div>
 
               <div className="flex justify-end gap-3 mt-4">
