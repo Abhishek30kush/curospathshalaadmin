@@ -10,6 +10,27 @@ const Questions = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
+  const [inlineAddIdx, setInlineAddIdx] = useState(null);
+
+  const openInlineAdd = (q, index) => {
+    setNewQuestion({
+      text: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctOption: 'A',
+      solution: '',
+      subject: q.subject || getAvailableSubjects()[0],
+      difficulty: q.difficulty || 'Medium',
+      marks: q.marks || 4,
+      negativeMarks: q.negativeMarks || -1,
+      imageUrl: '',
+    });
+    setInlineAddIdx(index);
+    setShowAddForm(false);
+    setShowBulkForm(false);
+  };
   
   const [newQuestion, setNewQuestion] = useState({
     text: '',
@@ -148,10 +169,119 @@ const Questions = () => {
         imageUrl: '',
       });
       setShowAddForm(false);
+      setInlineAddIdx(null);
       fetchQuestions(selectedSeries);
     } catch (error) {
       console.error("Error adding question: ", error);
     }
+  };
+
+  const renderAddQuestionForm = (isInline = false, onCancel = null) => {
+    return (
+      <form onSubmit={handleAddQuestion} className="flex flex-col gap-5">
+        
+        {/* Meta details row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
+            <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium" value={newQuestion.subject} onChange={(e) => setNewQuestion({...newQuestion, subject: e.target.value})}>
+              {getAvailableSubjects().map(sub => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Difficulty</label>
+            <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium" value={newQuestion.difficulty} onChange={(e) => setNewQuestion({...newQuestion, difficulty: e.target.value})}>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Positive Marks</label>
+            <input type="number" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" value={newQuestion.marks} onChange={(e) => setNewQuestion({...newQuestion, marks: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Negative Marks</label>
+            <input type="number" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" value={newQuestion.negativeMarks} onChange={(e) => setNewQuestion({...newQuestion, negativeMarks: e.target.value})} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image URL (optional)</label>
+          <input type="url" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" placeholder="https://domain.com/diagram.png" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
+          {newQuestion.imageUrl && (
+            <img src={newQuestion.imageUrl} alt="Diagram preview" className="mt-2 max-h-40 rounded-lg object-contain border" />
+          )}
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-semibold text-slate-600">Question Text</label>
+            {/* Math symbols toolbar */}
+            <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100 max-w-full overflow-x-auto">
+              {symbols.map(s => (
+                <button 
+                  type="button" 
+                  key={s.label}
+                  onClick={() => insertSymbol(s.val, 'new-question-text')}
+                  className="px-2 py-1 bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 rounded text-xs border border-slate-200 transition font-mono font-bold"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea id="new-question-text" required rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} placeholder="Write your question here..."></textarea>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {['A', 'B', 'C', 'D'].map(opt => (
+            <div key={opt}>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Option {opt}</label>
+              <input type="text" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion[`option${opt}`]} onChange={(e) => setNewQuestion({...newQuestion, [`option${opt}`]: e.target.value})} />
+            </div>
+          ))}
+        </div>
+
+        <div className="w-1/3">
+          <label className="block text-sm font-semibold text-slate-600 mb-1">Correct Option</label>
+          <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-bold text-slate-700" value={newQuestion.correctOption} onChange={(e) => setNewQuestion({...newQuestion, correctOption: e.target.value})}>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation (optional)</label>
+            <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
+              {symbols.map(s => (
+                <button 
+                  type="button" 
+                  key={s.label}
+                  onClick={() => insertSymbol(s.val, 'new-question-solution')}
+                  className="px-2 py-1 bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 rounded text-xs border border-slate-200 transition font-mono font-bold"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea id="new-question-solution" rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.solution} onChange={(e) => setNewQuestion({...newQuestion, solution: e.target.value})} placeholder="Step-by-step solution..."></textarea>
+        </div>
+
+        <div className="flex gap-3 mt-2">
+          <button type="submit" className="bg-purple-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-purple-700 transition shadow-sm">Save Question</button>
+          {isInline && onCancel && (
+            <button type="button" onClick={onCancel} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl transition">Cancel</button>
+          )}
+        </div>
+      </form>
+    );
   };
 
   const handleEditQuestion = async (e) => {
@@ -312,13 +442,13 @@ const Questions = () => {
         {selectedSeries && (
           <div className="flex gap-4">
             <button 
-              onClick={() => { setShowBulkForm(!showBulkForm); setShowAddForm(false); }}
+              onClick={() => { setShowBulkForm(!showBulkForm); setShowAddForm(false); setInlineAddIdx(null); }}
               className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition shadow-sm"
             >
               {showBulkForm ? 'Cancel' : '📥 Bulk CSV Import'}
             </button>
             <button 
-              onClick={() => { setShowAddForm(!showAddForm); setShowBulkForm(false); }}
+              onClick={() => { setShowAddForm(!showAddForm); setShowBulkForm(false); setInlineAddIdx(null); }}
               className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-purple-700 transition shadow-sm"
             >
               {showAddForm ? 'Cancel' : '＋ Add Question'}
@@ -378,106 +508,9 @@ const Questions = () => {
 
       {/* Single Add Question Form */}
       {showAddForm && (
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8 border-l-4 border-l-purple-500">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8 border-l-4 border-l-purple-500 animate-fadeIn">
           <h3 className="text-xl font-bold text-slate-700 mb-6">Create New MCQ Question</h3>
-          <form onSubmit={handleAddQuestion} className="flex flex-col gap-5">
-            
-            {/* Meta details row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
-                <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium" value={newQuestion.subject} onChange={(e) => setNewQuestion({...newQuestion, subject: e.target.value})}>
-                  {getAvailableSubjects().map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Difficulty</label>
-                <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium" value={newQuestion.difficulty} onChange={(e) => setNewQuestion({...newQuestion, difficulty: e.target.value})}>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Positive Marks</label>
-                <input type="number" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" value={newQuestion.marks} onChange={(e) => setNewQuestion({...newQuestion, marks: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Negative Marks</label>
-                <input type="number" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" value={newQuestion.negativeMarks} onChange={(e) => setNewQuestion({...newQuestion, negativeMarks: e.target.value})} />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image URL (optional)</label>
-              <input type="url" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" placeholder="https://domain.com/diagram.png" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
-              {newQuestion.imageUrl && (
-                <img src={newQuestion.imageUrl} alt="Diagram preview" className="mt-2 max-h-40 rounded-lg object-contain border" />
-              )}
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-semibold text-slate-600">Question Text</label>
-                {/* Math symbols toolbar */}
-                <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100 max-w-full overflow-x-auto">
-                  {symbols.map(s => (
-                    <button 
-                      type="button" 
-                      key={s.label}
-                      onClick={() => insertSymbol(s.val, 'new-question-text')}
-                      className="px-2 py-1 bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 rounded text-xs border border-slate-200 transition font-mono font-bold"
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <textarea id="new-question-text" required rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} placeholder="Write your question here..."></textarea>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {['A', 'B', 'C', 'D'].map(opt => (
-                <div key={opt}>
-                  <label className="block text-sm font-semibold text-slate-600 mb-1">Option {opt}</label>
-                  <input type="text" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion[`option${opt}`]} onChange={(e) => setNewQuestion({...newQuestion, [`option${opt}`]: e.target.value})} />
-                </div>
-              ))}
-            </div>
-
-            <div className="w-1/3">
-              <label className="block text-sm font-semibold text-slate-600 mb-1">Correct Option</label>
-              <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-bold text-slate-700" value={newQuestion.correctOption} onChange={(e) => setNewQuestion({...newQuestion, correctOption: e.target.value})}>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-              </select>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-semibold text-slate-600">Detailed Solution / Explanation (optional)</label>
-                <div className="flex flex-wrap gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
-                  {symbols.map(s => (
-                    <button 
-                      type="button" 
-                      key={s.label}
-                      onClick={() => insertSymbol(s.val, 'new-question-solution')}
-                      className="px-2 py-1 bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 rounded text-xs border border-slate-200 transition font-mono font-bold"
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <textarea id="new-question-solution" rows="3" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800" value={newQuestion.solution} onChange={(e) => setNewQuestion({...newQuestion, solution: e.target.value})} placeholder="Step-by-step solution..."></textarea>
-            </div>
-
-            <button type="submit" className="mt-2 self-start bg-purple-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-purple-700 transition shadow-sm">Save Question</button>
-          </form>
+          {renderAddQuestionForm(false)}
         </div>
       )}
 
@@ -495,31 +528,39 @@ const Questions = () => {
         <div className="flex flex-col gap-4">
           <h3 className="text-xl font-bold text-slate-700 mb-2">Questions in Series ({questions.length})</h3>
           {questions.map((q, index) => (
-            <div key={q.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 shrink-0 text-sm">
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2 gap-4">
-                    <p className="font-semibold text-slate-800 text-lg leading-relaxed">{q.text}</p>
-                    <div className="flex gap-2 shrink-0">
-                      <button 
-                        onClick={() => openEditModal(q)} 
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition" 
-                        title="Edit Question"
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteQuestion(q.id)} 
-                        className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition" 
-                        title="Delete Question"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
+            <React.Fragment key={q.id}>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 shrink-0 text-sm">
+                    {index + 1}
                   </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2 gap-4">
+                      <p className="font-semibold text-slate-800 text-lg leading-relaxed">{q.text}</p>
+                      <div className="flex gap-2 shrink-0">
+                        <button 
+                          onClick={() => openInlineAdd(q, index)} 
+                          className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 p-1.5 rounded-lg transition" 
+                          title="Add Question Below"
+                        >
+                          ➕
+                        </button>
+                        <button 
+                          onClick={() => openEditModal(q)} 
+                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition" 
+                          title="Edit Question"
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteQuestion(q.id)} 
+                          className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition" 
+                          title="Delete Question"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </div>
 
                   {/* Badges Row */}
                   <div className="flex flex-wrap gap-2 mb-4">
@@ -562,6 +603,15 @@ const Questions = () => {
                 </div>
               </div>
             </div>
+
+              {/* Inline Add Question Form */}
+              {inlineAddIdx === index && (
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-purple-200 border-l-4 border-l-purple-500 my-4 animate-fadeIn">
+                  <h3 className="text-xl font-bold text-slate-700 mb-6">➕ Add Question below Q. {index + 1} (Inheriting settings)</h3>
+                  {renderAddQuestionForm(true, () => setInlineAddIdx(null))}
+                </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
       )}
