@@ -14,6 +14,7 @@ import Notifications from './components/Notifications';
 import Earnings from './components/Earnings';
 import PapersBundles from './components/PapersBundles';
 import QuickNoteWidget from './components/QuickNoteWidget';
+import Forum from './components/Forum';
 
 
 const Sidebar = ({ userRole }) => {
@@ -40,6 +41,7 @@ const Sidebar = ({ userRole }) => {
           <NavLink to="/earnings" className={linkClass}>💰 Earnings</NavLink>
         )}
         <NavLink to="/notifications" className={linkClass}>🔔 Notifications</NavLink>
+        <NavLink to="/forum" className={linkClass}>💬 Doubt Forum</NavLink>
       </nav>
       <button 
         onClick={handleLogout}
@@ -534,6 +536,7 @@ const App = () => {
               )
             } />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/forum" element={<Forum />} />
           </Routes>
         </main>
       </div>
