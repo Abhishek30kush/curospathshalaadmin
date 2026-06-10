@@ -70,7 +70,9 @@ const Questions = () => {
       if (current) {
         setNewQuestion(prev => ({ 
           ...prev, 
-          subject: current.category === 'NEET' ? 'Biology' : 'Physics' 
+          subject: (current.subject && current.subject !== 'Full Syllabus' && current.subject !== 'General')
+            ? current.subject
+            : (current.category === 'NEET' ? 'Biology' : 'Physics') 
         }));
       }
     }

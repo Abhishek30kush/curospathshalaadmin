@@ -17,8 +17,11 @@ const Materials = () => {
     title: '',
     type: 'pdf',
     url: '',
-    description: ''
+    description: '',
+    subject: 'General'
   });
+
+  const [courseFilterSubject, setCourseFilterSubject] = useState('All');
 
   // Class Study Materials State
   const [classMaterials, setClassMaterials] = useState([]);
@@ -98,8 +101,17 @@ const Materials = () => {
   useEffect(() => {
     if (selectedCourse) {
       fetchMaterials(selectedCourse);
+      setCourseFilterSubject('All');
+      const course = coursesList.find(c => c.id === selectedCourse);
+      if (course) {
+        const subs = getSubjectsList(course.category);
+        setNewMaterial(prev => ({
+          ...prev,
+          subject: subs[0] || 'General'
+        }));
+      }
     }
-  }, [selectedCourse]);
+  }, [selectedCourse, coursesList]);
 
   // Handle Category Change in Form
   const handleClassCategoryChange = (cat) => {
@@ -121,11 +133,14 @@ const Materials = () => {
         courseId: selectedCourse,
         title: newMaterial.title,
         type: newMaterial.type || 'pdf',
+        subject: newMaterial.subject || 'General',
         url: newMaterial.url,
         description: newMaterial.description,
         createdAt: new Date().toISOString()
       });
-      setNewMaterial({ title: '', type: 'pdf', url: '', description: '' });
+      const course = coursesList.find(c => c.id === selectedCourse);
+      const defaultSub = course ? getSubjectsList(course.category)[0] : 'General';
+      setNewMaterial({ title: '', type: 'pdf', url: '', description: '', subject: defaultSub });
       setShowAddForm(false);
       fetchMaterials(selectedCourse);
     } catch (err) {
@@ -219,6 +234,11 @@ const Materials = () => {
     return matchesCategory && matchesSubject;
   });
 
+  // Filter course materials list
+  const filteredCourseMaterials = materials.filter(m => {
+    return courseFilterSubject === 'All' || m.subject === courseFilterSubject;
+  });
+
   return (
     <div className="p-10 w-full max-w-6xl mx-auto">
       {/* Tab Header Selector */}
@@ -253,22 +273,40 @@ const Materials = () => {
 
       {/* FILTER CONTROLS */}
       {activeTab === 'course' ? (
-        <div className="mb-8">
-          <label className="block text-sm font-semibold text-slate-600 mb-2">Select Course to Manage Materials</label>
-          <select 
-            className="w-full max-w-md px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none shadow-sm font-medium text-slate-700 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            disabled={coursesList.length === 0}
-          >
-            {coursesList.length === 0 ? (
-              <option value="" disabled>No courses available</option>
-            ) : (
-              coursesList.map(course => (
-                <option key={course.id} value={course.id} className="text-slate-700 bg-white py-2">{course.title}</option>
-              ))
-            )}
-          </select>
+        <div className="flex flex-col md:flex-row gap-6 mb-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex-1">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">Select Course to Manage Materials</label>
+            <select 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium text-slate-700 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              disabled={coursesList.length === 0}
+            >
+              {coursesList.length === 0 ? (
+                <option value="" disabled>No courses available</option>
+              ) : (
+                coursesList.map(course => (
+                  <option key={course.id} value={course.id} className="text-slate-700 bg-white py-2">{course.title}</option>
+                ))
+              )}
+            </select>
+          </div>
+          {selectedCourse && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Filter by Subject</label>
+              <div className="flex gap-2 flex-wrap">
+                {['All', ...getSubjectsList(coursesList.find(c => c.id === selectedCourse)?.category || 'Both')].map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => setCourseFilterSubject(sub)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${courseFilterSubject === sub ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-wrap gap-6 mb-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -310,16 +348,24 @@ const Materials = () => {
           <h3 className="text-xl font-bold text-slate-700 mb-6">Upload New Course Material</h3>
           {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <form onSubmit={handleAddCourseMaterial} className="flex flex-col gap-5">
-            <div className="flex gap-4">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
                 <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.title} onChange={(e) => setNewMaterial({...newMaterial, title: e.target.value})} placeholder="e.g. Kinematics Lecture 1 Notes" />
               </div>
-              <div className="w-1/3">
+              <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Type</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newMaterial.type} onChange={(e) => setNewMaterial({...newMaterial, type: e.target.value})}>
                   <option value="pdf">PDF Note</option>
                   <option value="video">YouTube Video</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
+                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" value={newMaterial.subject} onChange={(e) => setNewMaterial({...newMaterial, subject: e.target.value})}>
+                  {getSubjectsList(coursesList.find(c => c.id === selectedCourse)?.category || 'Both').map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -419,13 +465,13 @@ const Materials = () => {
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
             <p className="text-xl text-slate-500">Please create a Course first to add materials.</p>
           </div>
-        ) : materials.length === 0 ? (
+        ) : filteredCourseMaterials.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
-            <p className="text-xl text-slate-500">No course materials found.</p>
+            <p className="text-xl text-slate-500">No course materials found matching the selected filters.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {materials.map(material => (
+            {filteredCourseMaterials.map(material => (
               <div key={material.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition">
                 {material.type === 'video' ? (
                   <div className="aspect-video w-full bg-slate-900">
@@ -450,10 +496,15 @@ const Materials = () => {
                 
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                         {material.type}
                       </span>
+                      {material.subject && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
+                          {material.subject}
+                        </span>
+                      )}
                       <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
                     </div>
                     <button onClick={() => handleDeleteMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition shrink-0" title="Delete Material">
