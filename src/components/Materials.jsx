@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import RichTextEditor from './RichTextEditor';
 
 const Materials = () => {
   const [activeTab, setActiveTab] = useState('course'); // 'course' or 'class'
@@ -11,6 +13,49 @@ const Materials = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ course: 0, class: 0, edit: 0 });
+
+  const handleFileUpload = async (e, formType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadProgress(prev => ({ ...prev, [formType]: 1 }));
+
+    try {
+      const storageRef = ref(storage, `materials/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(prev => ({ ...prev, [formType]: progress }));
+        }, 
+        (error) => {
+          console.error("Upload failed:", error);
+          alert("File upload failed: " + error.message);
+          setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          if (formType === 'course') {
+            setNewMaterial(prev => ({ ...prev, url: downloadURL }));
+          } else if (formType === 'class') {
+            setNewClassMaterial(prev => ({ ...prev, url: downloadURL }));
+          } else if (formType === 'edit') {
+            setEditingMaterial(prev => ({ ...prev, url: downloadURL }));
+          }
+          setUploadProgress(prev => ({ ...prev, [formType]: 100 }));
+          setTimeout(() => {
+            setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+          }, 2000);
+        }
+      );
+    } catch (err) {
+      console.error("Upload setup failed:", err);
+      alert("Error setting up file upload.");
+      setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+    }
+  };
 
   // Course Material Form State
   const [newMaterial, setNewMaterial] = useState({
@@ -21,7 +66,8 @@ const Materials = () => {
     url: '',
     textContent: '',
     description: '',
-    subject: 'General'
+    subject: 'General',
+    status: 'published'
   });
 
   const [courseFilterSubject, setCourseFilterSubject] = useState('All');
@@ -42,7 +88,8 @@ const Materials = () => {
     type: 'pdf',
     url: '',
     textContent: '',
-    description: ''
+    description: '',
+    status: 'published'
   });
 
   const categories = ['Class 9', 'Class 10', 'Class 11', 'Class 12', 'IIT-JEE', 'NEET'];
@@ -145,11 +192,12 @@ const Materials = () => {
         url: newMaterial.url || '',
         textContent: newMaterial.textContent || '',
         description: newMaterial.description,
+        status: newMaterial.status || 'published',
         createdAt: new Date().toISOString()
       });
       const course = coursesList.find(c => c.id === selectedCourse);
       const defaultSub = course ? getSubjectsList(course.category)[0] : 'General';
-      setNewMaterial({ title: '', chapterName: '', lectureName: '', type: 'pdf', url: '', textContent: '', description: '', subject: defaultSub });
+      setNewMaterial({ title: '', chapterName: '', lectureName: '', type: 'pdf', url: '', textContent: '', description: '', subject: defaultSub, status: 'published' });
       setShowAddForm(false);
       fetchMaterials(selectedCourse);
     } catch (err) {
@@ -177,6 +225,7 @@ const Materials = () => {
         url: newClassMaterial.url || '',
         textContent: newClassMaterial.textContent || '',
         description: newClassMaterial.description,
+        status: newClassMaterial.status || 'published',
         createdAt: new Date().toISOString()
       });
       // Keep category & subject to make uploading multiple documents faster, clear title and url
@@ -187,7 +236,8 @@ const Materials = () => {
         lectureName: '',
         url: '',
         textContent: '',
-        description: ''
+        description: '',
+        status: 'published'
       }));
       setShowAddForm(false);
       fetchClassMaterials();
@@ -218,6 +268,71 @@ const Materials = () => {
       } catch (error) {
         console.error("Error deleting class study material: ", error);
       }
+    }
+  };
+
+  const [editingMaterial, setEditingMaterial] = useState(null);
+  const [editingType, setEditingType] = useState(''); // 'course' or 'class'
+
+  const handleStartEdit = (material, type) => {
+    setEditingMaterial({ ...material });
+    setEditingType(type);
+  };
+
+  const handlePublishMaterial = async (materialId, type) => {
+    try {
+      const collectionName = type === 'course' ? 'materials' : 'studyMaterials';
+      await updateDoc(doc(db, collectionName, materialId), {
+        status: 'published'
+      });
+      if (type === 'course') {
+        fetchMaterials(selectedCourse);
+      } else {
+        fetchClassMaterials();
+      }
+    } catch (error) {
+      console.error("Error publishing material: ", error);
+      alert("Failed to publish material.");
+    }
+  };
+
+  const handleUpdateMaterial = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const collectionName = editingType === 'course' ? 'materials' : 'studyMaterials';
+      const updateData = {
+        title: editingMaterial.title,
+        chapterName: editingMaterial.chapterName || 'General',
+        lectureName: editingMaterial.lectureName || '',
+        type: editingMaterial.type || 'pdf',
+        url: editingMaterial.url || '',
+        textContent: editingMaterial.textContent || '',
+        description: editingMaterial.description || '',
+        subject: editingMaterial.subject || 'General',
+        status: editingMaterial.status || 'published'
+      };
+
+      if (editingType === 'class') {
+        updateData.category = editingMaterial.category;
+        updateData.materialType = editingMaterial.materialType;
+      }
+
+      await updateDoc(doc(db, collectionName, editingMaterial.id), updateData);
+      
+      setEditingMaterial(null);
+      setEditingType('');
+      if (editingType === 'course') {
+        fetchMaterials(selectedCourse);
+      } else {
+        fetchClassMaterials();
+      }
+    } catch (err) {
+      console.error("Error updating material: ", err);
+      setError(err.message || "Failed to update material.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -387,7 +502,7 @@ const Materials = () => {
                 <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.lectureName} onChange={(e) => setNewMaterial({...newMaterial, lectureName: e.target.value})} placeholder="e.g. Lecture 1" />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Type</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newMaterial.type} onChange={(e) => setNewMaterial({...newMaterial, type: e.target.value})}>
@@ -404,19 +519,43 @@ const Materials = () => {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Status</label>
+                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newMaterial.status} onChange={(e) => setNewMaterial({...newMaterial, status: e.target.value})}>
+                  <option value="published">🚀 Published</option>
+                  <option value="draft">📝 Save as Draft</option>
+                </select>
+              </div>
             </div>
 
             <div>
               {newMaterial.type === 'text' ? (
                 <>
                   <label className="block text-sm font-semibold text-slate-600 mb-1">Note Content</label>
-                  <textarea required rows="6" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm whitespace-pre-wrap" value={newMaterial.textContent} onChange={(e) => setNewMaterial({...newMaterial, textContent: e.target.value})} placeholder="Type your notes here..."></textarea>
+                  <RichTextEditor value={newMaterial.textContent} onChange={(html) => setNewMaterial({...newMaterial, textContent: html})} placeholder="Type your notes here..." />
+                </>
+              ) : newMaterial.type === 'pdf' ? (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Upload PDF File</label>
+                  <input 
+                    type="file" 
+                    accept="application/pdf" 
+                    required={!newMaterial.url}
+                    onChange={(e) => handleFileUpload(e, 'course')}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" 
+                  />
+                  {uploadProgress['course'] > 0 && (
+                    <div className="w-full bg-slate-100 rounded-full h-2 mt-2">
+                      <div className="bg-teal-600 h-2 rounded-full transition-all" style={{ width: `${uploadProgress['course']}%` }}></div>
+                    </div>
+                  )}
+                  {newMaterial.url && (
+                    <p className="text-xs text-emerald-600 font-semibold mt-1">✓ PDF uploaded successfully</p>
+                  )}
                 </>
               ) : (
                 <>
-                  <label className="block text-sm font-semibold text-slate-600 mb-1">
-                    {newMaterial.type === 'pdf' ? 'PDF Link (Drive / Storage URL)' : 'YouTube Video Link'}
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">YouTube Video Link</label>
                   <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newMaterial.url} onChange={(e) => setNewMaterial({...newMaterial, url: e.target.value})} placeholder="https://..." />
                 </>
               )}
@@ -489,17 +628,44 @@ const Materials = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Status</label>
+                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" value={newClassMaterial.status} onChange={(e) => setNewClassMaterial({...newClassMaterial, status: e.target.value})}>
+                  <option value="published">🚀 Published</option>
+                  <option value="draft">📝 Save as Draft</option>
+                </select>
+              </div>
+            </div>
+
             <div>
               {newClassMaterial.type === 'text' ? (
                 <>
                   <label className="block text-sm font-semibold text-slate-600 mb-1">Note Content</label>
-                  <textarea required rows="6" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm whitespace-pre-wrap" value={newClassMaterial.textContent} onChange={(e) => setNewClassMaterial({...newClassMaterial, textContent: e.target.value})} placeholder="Type your notes here..."></textarea>
+                  <RichTextEditor value={newClassMaterial.textContent} onChange={(html) => setNewClassMaterial({...newClassMaterial, textContent: html})} placeholder="Type your notes here..." />
+                </>
+              ) : newClassMaterial.type === 'pdf' ? (
+                <>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Upload PDF File</label>
+                  <input 
+                    type="file" 
+                    accept="application/pdf" 
+                    required={!newClassMaterial.url}
+                    onChange={(e) => handleFileUpload(e, 'class')}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" 
+                  />
+                  {uploadProgress['class'] > 0 && (
+                    <div className="w-full bg-slate-100 rounded-full h-2 mt-2">
+                      <div className="bg-teal-600 h-2 rounded-full transition-all" style={{ width: `${uploadProgress['class']}%` }}></div>
+                    </div>
+                  )}
+                  {newClassMaterial.url && (
+                    <p className="text-xs text-emerald-600 font-semibold mt-1">✓ PDF uploaded successfully</p>
+                  )}
                 </>
               ) : (
                 <>
-                  <label className="block text-sm font-semibold text-slate-600 mb-1">
-                    {newClassMaterial.type === 'pdf' ? 'PDF Drive / Storage Link' : 'YouTube Video Link'}
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">YouTube Video Link</label>
                   <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={newClassMaterial.url} onChange={(e) => setNewClassMaterial({...newClassMaterial, url: e.target.value})} placeholder="https://..." />
                 </>
               )}
@@ -566,11 +732,16 @@ const Materials = () => {
                       )}
                       
                       <div className="p-6">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2 gap-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${material.type === 'video' ? 'bg-blue-100 text-blue-700' : material.type === 'text' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
                               {material.type}
                             </span>
+                            {material.status === 'draft' && (
+                              <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                📝 Draft
+                              </span>
+                            )}
                             {material.subject && (
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
                                 {material.subject}
@@ -578,9 +749,19 @@ const Materials = () => {
                             )}
                             <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
                           </div>
-                          <button onClick={() => handleDeleteMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition shrink-0" title="Delete Material">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {material.status === 'draft' && (
+                              <button onClick={() => handlePublishMaterial(material.id, 'course')} className="text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 p-1.5 rounded transition" title="Publish Material">
+                                🚀
+                              </button>
+                            )}
+                            <button onClick={() => handleStartEdit(material, 'course')} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded transition" title="Edit Material">
+                              ✏️
+                            </button>
+                            <button onClick={() => handleDeleteMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition" title="Delete Material">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
                         </div>
                         <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
                         {material.lectureName && (
@@ -644,16 +825,31 @@ const Materials = () => {
                         )}
                         
                         <div className="p-6">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between mb-3 gap-2">
                             <div className="flex items-center gap-2 flex-wrap">
+                              {material.status === 'draft' && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                  📝 Draft
+                                </span>
+                              )}
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(material.subject)}`}>
                                 {material.subject}
                               </span>
                               <span className="text-slate-400 text-xs">{material.createdAt ? new Date(material.createdAt).toLocaleDateString() : ''}</span>
                             </div>
-                            <button onClick={() => handleDeleteClassMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition shrink-0" title="Delete Class Material">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {material.status === 'draft' && (
+                                <button onClick={() => handlePublishMaterial(material.id, 'class')} className="text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 p-1.5 rounded transition" title="Publish Material">
+                                  🚀
+                                </button>
+                              )}
+                              <button onClick={() => handleStartEdit(material, 'class')} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded transition" title="Edit Material">
+                                ✏️
+                              </button>
+                              <button onClick={() => handleDeleteClassMaterial(material.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition shrink-0" title="Delete Class Material">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
                           </div>
                           <h3 className="text-lg font-bold text-slate-800 mb-2 leading-tight">{material.title}</h3>
                           {material.lectureName && (
@@ -689,6 +885,176 @@ const Materials = () => {
             ))}
           </div>
         )
+      )}
+      {editingMaterial && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 border border-slate-100 animate-scaleIn">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-slate-800">✏️ Edit Study Material</h3>
+              <button 
+                onClick={() => { setEditingMaterial(null); setEditingType(''); }}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateMaterial} className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Title</label>
+                  <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={editingMaterial.title} onChange={(e) => setEditingMaterial({...editingMaterial, title: e.target.value})} placeholder="Title" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Chapter Name</label>
+                  <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={editingMaterial.chapterName} onChange={(e) => setEditingMaterial({...editingMaterial, chapterName: e.target.value})} placeholder="Chapter Name" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Lecture Name</label>
+                  <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={editingMaterial.lectureName} onChange={(e) => setEditingMaterial({...editingMaterial, lectureName: e.target.value})} placeholder="Lecture Name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
+                  <select 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" 
+                    value={editingMaterial.subject} 
+                    onChange={(e) => setEditingMaterial({...editingMaterial, subject: e.target.value})}
+                  >
+                    {editingType === 'course' ? (
+                      getSubjectsList(coursesList.find(c => c.id === selectedCourse)?.category || 'Both').map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))
+                    ) : (
+                      getSubjectsList(editingMaterial.category).map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Status</label>
+                  <select 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" 
+                    value={editingMaterial.status || 'published'} 
+                    onChange={(e) => setEditingMaterial({...editingMaterial, status: e.target.value})}
+                  >
+                    <option value="published">🚀 Published</option>
+                    <option value="draft">📝 Draft</option>
+                  </select>
+                </div>
+              </div>
+
+              {editingType === 'class' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-600 mb-1">Class / Category</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-700" 
+                      value={editingMaterial.category} 
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        const subs = getSubjectsList(cat);
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          category: cat,
+                          subject: subs[0] || 'General'
+                        });
+                      }}
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-600 mb-1">Resource Category</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" 
+                      value={editingMaterial.materialType} 
+                      onChange={(e) => setEditingMaterial({...editingMaterial, materialType: e.target.value})}
+                    >
+                      {resourceTypes.map(rt => (
+                        <option key={rt} value={rt}>{rt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Media Type</label>
+                  <select 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-semibold text-slate-700" 
+                    value={editingMaterial.type} 
+                    onChange={(e) => setEditingMaterial({...editingMaterial, type: e.target.value})}
+                  >
+                    <option value="pdf">📄 PDF Note/Sheet</option>
+                    <option value="video">🎥 YouTube Video Link</option>
+                    <option value="text">📝 Direct Note (Text)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                {editingMaterial.type === 'text' ? (
+                  <>
+                    <label className="block text-sm font-semibold text-slate-600 mb-1">Note Content</label>
+                    <RichTextEditor value={editingMaterial.textContent} onChange={(html) => setEditingMaterial({...editingMaterial, textContent: html})} placeholder="Type notes here..." />
+                  </>
+                ) : editingMaterial.type === 'pdf' ? (
+                  <>
+                    <label className="block text-sm font-semibold text-slate-600 mb-1">Upload PDF File (Optional - leave empty to keep current)</label>
+                    <input 
+                      type="file" 
+                      accept="application/pdf" 
+                      onChange={(e) => handleFileUpload(e, 'edit')}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" 
+                    />
+                    {uploadProgress['edit'] > 0 && (
+                      <div className="w-full bg-slate-100 rounded-full h-2 mt-2">
+                        <div className="bg-teal-600 h-2 rounded-full transition-all" style={{ width: `${uploadProgress['edit']}%` }}></div>
+                      </div>
+                    )}
+                    {editingMaterial.url && (
+                      <p className="text-xs text-emerald-600 font-semibold mt-1">✓ PDF File URL: {editingMaterial.url.substring(0, 50)}...</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-semibold text-slate-600 mb-1">YouTube Video Link</label>
+                    <input type="url" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={editingMaterial.url} onChange={(e) => setEditingMaterial({...editingMaterial, url: e.target.value})} placeholder="https://..." />
+                  </>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Description / Topics covered</label>
+                <textarea rows="2" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={editingMaterial.description || ''} onChange={(e) => setEditingMaterial({...editingMaterial, description: e.target.value})} placeholder="Brief details..."></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => { setEditingMaterial(null); setEditingType(''); }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm disabled:opacity-70"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, where, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, where, getDoc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 const TestSeries = () => {
   const [testSeries, setTestSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newSeries, setNewSeries] = useState({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180' });
+  const [newSeries, setNewSeries] = useState({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180', status: 'published' });
   const navigate = useNavigate();
 
   const [filterCategory, setFilterCategory] = useState('All');
@@ -117,9 +117,10 @@ const TestSeries = () => {
         description: newSeries.description,
         isTimed: newSeries.isTimed,
         duration: newSeries.isTimed ? Number(newSeries.duration) : null,
+        status: newSeries.status || 'published',
         createdAt: new Date().toISOString()
       });
-      setNewSeries({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180' });
+      setNewSeries({ title: '', category: 'IIT-JEE', subject: 'Full Syllabus', description: '', isTimed: false, duration: '180', status: 'published' });
       setShowAddForm(false);
       fetchTestSeries();
     } catch (err) {
@@ -138,6 +139,48 @@ const TestSeries = () => {
       } catch (error) {
         console.error("Error deleting test series: ", error);
       }
+    }
+  };
+
+  const [editingSeries, setEditingSeries] = useState(null);
+
+  const handleStartEdit = (series) => {
+    setEditingSeries({ ...series });
+  };
+
+  const handlePublishSeries = async (seriesId) => {
+    try {
+      await updateDoc(doc(db, "testSeries", seriesId), {
+        status: 'published'
+      });
+      fetchTestSeries();
+    } catch (error) {
+      console.error("Error publishing test series: ", error);
+      alert("Failed to publish test series.");
+    }
+  };
+
+  const handleUpdateSeries = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await updateDoc(doc(db, "testSeries", editingSeries.id), {
+        title: editingSeries.title,
+        category: editingSeries.category,
+        subject: editingSeries.subject,
+        description: editingSeries.description,
+        isTimed: editingSeries.isTimed,
+        duration: editingSeries.isTimed ? Number(editingSeries.duration) : null,
+        status: editingSeries.status || 'published'
+      });
+      setEditingSeries(null);
+      fetchTestSeries();
+    } catch (err) {
+      console.error("Error updating test series: ", err);
+      setError(err.message || "Failed to update test series.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -205,32 +248,40 @@ const TestSeries = () => {
                 </select>
               </div>
             </div>
-            {/* Timing Option Fields */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
-                  checked={newSeries.isTimed} 
-                  onChange={(e) => setNewSeries({...newSeries, isTimed: e.target.checked})} 
-                />
-                <span className="text-sm font-semibold text-slate-700">Enable Test Timer / Duration?</span>
-              </label>
-
-              {newSeries.isTimed && (
-                <div className="flex items-center gap-2 animate-fadeIn">
-                  <label className="text-sm font-semibold text-slate-600">Duration:</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input 
-                    type="number" 
-                    required 
-                    min="1"
-                    className="w-24 px-3 py-1 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold text-slate-800"
-                    value={newSeries.duration} 
-                    onChange={(e) => setNewSeries({...newSeries, duration: e.target.value})} 
+                    type="checkbox" 
+                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                    checked={newSeries.isTimed} 
+                    onChange={(e) => setNewSeries({...newSeries, isTimed: e.target.checked})} 
                   />
-                  <span className="text-sm text-slate-500 font-medium">Minutes</span>
-                </div>
-              )}
+                  <span className="text-sm font-semibold text-slate-700">Enable Test Timer / Duration?</span>
+                </label>
+
+                {newSeries.isTimed && (
+                  <div className="flex items-center gap-2 animate-fadeIn">
+                    <label className="text-sm font-semibold text-slate-600">Duration:</label>
+                    <input 
+                      type="number" 
+                      required 
+                      min="1"
+                      className="w-24 px-3 py-1 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold text-slate-800"
+                      value={newSeries.duration} 
+                      onChange={(e) => setNewSeries({...newSeries, duration: e.target.value})} 
+                    />
+                    <span className="text-sm text-slate-500 font-medium">Minutes</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Status</label>
+                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-700" value={newSeries.status} onChange={(e) => setNewSeries({...newSeries, status: e.target.value})}>
+                  <option value="published">🚀 Published</option>
+                  <option value="draft">📝 Save as Draft</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -295,6 +346,11 @@ const TestSeries = () => {
                   }`}>
                     {series.category === 'JEE' ? 'IIT-JEE' : series.category}
                   </span>
+                  {series.status === 'draft' && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                      📝 Draft
+                    </span>
+                  )}
                   {series.subject && (
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${getSubjectColorClasses(series.subject)}`}>
                       {series.subject}
@@ -306,8 +362,17 @@ const TestSeries = () => {
                     ⏱️ {series.isTimed ? `${series.duration} min` : 'Practice'}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className="text-slate-400 text-sm">{series.createdAt ? new Date(series.createdAt).toLocaleDateString() : ''}</span>
+                  
+                  {series.status === 'draft' && (
+                    <button onClick={() => handlePublishSeries(series.id)} className="text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 p-1.5 rounded transition shrink-0" title="Publish Test Series">
+                      🚀
+                    </button>
+                  )}
+                  <button onClick={() => handleStartEdit(series)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded transition shrink-0" title="Edit Test Series">
+                    ✏️
+                  </button>
                   <button onClick={() => handleDeleteSeries(series.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition shrink-0" title="Delete Series">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
@@ -371,6 +436,112 @@ const TestSeries = () => {
         </div>
       )}
 
+      {editingSeries && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 border border-slate-100 animate-scaleIn">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-slate-800">✏️ Edit Test Series</h3>
+              <button 
+                onClick={() => setEditingSeries(null)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {error && <div className="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+
+            <form onSubmit={handleUpdateSeries} className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Series Title</label>
+                  <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" value={editingSeries.title} onChange={(e) => setEditingSeries({...editingSeries, title: e.target.value})} placeholder="Title" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Status</label>
+                  <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700" value={editingSeries.status || 'published'} onChange={(e) => setEditingSeries({...editingSeries, status: e.target.value})}>
+                    <option value="published">🚀 Published</option>
+                    <option value="draft">📝 Draft</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Category</label>
+                  <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700" value={editingSeries.category} onChange={(e) => setEditingSeries({...editingSeries, category: e.target.value, subject: 'Full Syllabus'})}>
+                    <option value="IIT-JEE">IIT-JEE</option>
+                    <option value="NEET">NEET</option>
+                    <option value="Class 9">Class 9</option>
+                    <option value="Class 10">Class 10</option>
+                    <option value="Class 11">Class 11</option>
+                    <option value="Class 12">Class 12</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-600 mb-1">Subject</label>
+                  <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-700" value={editingSeries.subject} onChange={(e) => setEditingSeries({...editingSeries, subject: e.target.value})}>
+                    {getSubjectsList(editingSeries.category).map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                      checked={editingSeries.isTimed} 
+                      onChange={(e) => setEditingSeries({...editingSeries, isTimed: e.target.checked})} 
+                    />
+                    <span className="text-sm font-semibold text-slate-700">Enable Test Timer / Duration?</span>
+                  </label>
+
+                  {editingSeries.isTimed && (
+                    <div className="flex items-center gap-2 animate-fadeIn">
+                      <label className="text-sm font-semibold text-slate-600">Duration:</label>
+                      <input 
+                        type="number" 
+                        required 
+                        min="1"
+                        className="w-24 px-3 py-1 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold text-slate-800"
+                        value={editingSeries.duration || ''} 
+                        onChange={(e) => setEditingSeries({...editingSeries, duration: e.target.value})} 
+                      />
+                      <span className="text-sm text-slate-500 font-medium">Minutes</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Description</label>
+                <textarea required rows="2" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700" value={editingSeries.description} onChange={(e) => setEditingSeries({...editingSeries, description: e.target.value})} placeholder="Brief description..."></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingSeries(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm disabled:opacity-70"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

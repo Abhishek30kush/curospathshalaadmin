@@ -28,8 +28,8 @@ const QuickNoteWidget = () => {
     fetchCourses();
   }, []);
 
-  const handleSaveNote = async (e) => {
-    e.preventDefault();
+  const handleSaveNote = async (e, status = 'published') => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!title.trim() || !content.trim()) {
       setMessage({ text: 'Title and content are required.', type: 'error' });
       return;
@@ -51,6 +51,7 @@ const QuickNoteWidget = () => {
           url: '',
           textContent: content,
           description: 'Quick note created from dashboard',
+          status: status,
           createdAt: new Date().toISOString()
         });
       } else {
@@ -65,10 +66,14 @@ const QuickNoteWidget = () => {
           url: '',
           textContent: content,
           description: 'Quick note created from dashboard',
+          status: status,
           createdAt: new Date().toISOString()
         });
       }
-      setMessage({ text: 'Note published successfully!', type: 'success' });
+      setMessage({ 
+        text: status === 'draft' ? 'Note saved as draft successfully!' : 'Note published successfully!', 
+        type: 'success' 
+      });
       setTitle('');
       setContent('');
       
@@ -87,7 +92,7 @@ const QuickNoteWidget = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="text-2xl font-black text-slate-800 tracking-tight">📝 Quick Note Creator</h3>
-          <p className="text-slate-500 text-sm mt-1">Instantly publish a text note to students</p>
+          <p className="text-slate-500 text-sm mt-1">Instantly publish or save a draft text note</p>
         </div>
       </div>
 
@@ -97,7 +102,7 @@ const QuickNoteWidget = () => {
         </div>
       )}
 
-      <form onSubmit={handleSaveNote} className="flex flex-col gap-5">
+      <form onSubmit={(e) => handleSaveNote(e, 'published')} className="flex flex-col gap-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-slate-600 mb-1">Target Audience</label>
@@ -169,13 +174,24 @@ const QuickNoteWidget = () => {
           ></textarea>
         </div>
 
-        <button 
-          type="submit" 
-          disabled={isSaving}
-          className="self-start bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm disabled:opacity-70 mt-2"
-        >
-          {isSaving ? 'Publishing...' : '🚀 Publish Note Immediately'}
-        </button>
+        <div className="flex gap-4">
+          <button 
+            type="button" 
+            onClick={(e) => handleSaveNote(e, 'draft')}
+            disabled={isSaving}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl transition border border-slate-300 disabled:opacity-70 mt-2"
+          >
+            {isSaving ? 'Saving...' : '💾 Save as Draft'}
+          </button>
+          <button 
+            type="button" 
+            onClick={(e) => handleSaveNote(e, 'published')}
+            disabled={isSaving}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl transition shadow-sm disabled:opacity-70 mt-2"
+          >
+            {isSaving ? 'Publishing...' : '🚀 Publish Note'}
+          </button>
+        </div>
       </form>
     </div>
   );

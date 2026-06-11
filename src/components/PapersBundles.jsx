@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const PapersBundles = () => {
   const [papers, setPapers] = useState([]);
@@ -13,6 +14,43 @@ const PapersBundles = () => {
   
   // Modal states for printing/previewing
   const [previewPaper, setPreviewPaper] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadProgress(1);
+
+    try {
+      const storageRef = ref(storage, `testPapers/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        }, 
+        (error) => {
+          console.error("Upload failed:", error);
+          alert("File upload failed: " + error.message);
+          setUploadProgress(0);
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          setNewPaper(prev => ({ ...prev, pdfUrl: downloadURL }));
+          setUploadProgress(100);
+          setTimeout(() => {
+            setUploadProgress(0);
+          }, 2000);
+        }
+      );
+    } catch (err) {
+      console.error("Upload setup failed:", err);
+      alert("Error setting up file upload.");
+      setUploadProgress(0);
+    }
+  };
 
   // Default structure for new paper
   const [newPaper, setNewPaper] = useState({
@@ -374,18 +412,44 @@ const PapersBundles = () => {
               ></textarea>
             </div>
 
-            {/* Mode: PDF URL */}
+            {/* Mode: PDF URL / File */}
             {newPaper.mode === 'pdf' && (
-              <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-fadeIn">
-                <label className="block text-sm font-bold text-indigo-700 mb-2">Pre-Made PDF Drive/Storage Link</label>
-                <input 
-                  type="url" 
-                  required={newPaper.mode === 'pdf'}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium" 
-                  value={newPaper.pdfUrl} 
-                  onChange={(e) => setNewPaper({...newPaper, pdfUrl: e.target.value})} 
-                  placeholder="https://drive.google.com/file/d/... or any direct PDF URL" 
-                />
+              <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-fadeIn flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-indigo-700 mb-2">Upload PDF File</label>
+                  <input 
+                    type="file" 
+                    accept="application/pdf" 
+                    required={!newPaper.pdfUrl}
+                    onChange={handleFileUpload}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none file:mr-4 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                  />
+                  {uploadProgress > 0 && (
+                    <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                  )}
+                  {newPaper.pdfUrl && (
+                    <p className="text-xs text-emerald-600 font-semibold mt-1">✓ PDF uploaded successfully</p>
+                  )}
+                </div>
+
+                <div className="relative flex py-2 items-center">
+                  <div className="flex-grow border-t border-indigo-100"></div>
+                  <span className="flex-shrink mx-4 text-xs text-indigo-400 font-bold uppercase">or provide link instead</span>
+                  <div className="flex-grow border-t border-indigo-100"></div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Pre-Made PDF Drive/Storage Link</label>
+                  <input 
+                    type="url" 
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" 
+                    value={newPaper.pdfUrl} 
+                    onChange={(e) => setNewPaper({...newPaper, pdfUrl: e.target.value})} 
+                    placeholder="https://drive.google.com/file/d/... or any direct PDF URL" 
+                  />
+                </div>
               </div>
             )}
 

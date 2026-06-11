@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const Questions = () => {
   const [testSeriesList, setTestSeriesList] = useState([]);
@@ -11,6 +12,47 @@ const Questions = () => {
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [inlineAddIdx, setInlineAddIdx] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState({ add: 0, edit: 0 });
+
+  const handleFileUpload = async (e, formType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadProgress(prev => ({ ...prev, [formType]: 1 }));
+
+    try {
+      const storageRef = ref(storage, `questions/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(prev => ({ ...prev, [formType]: progress }));
+        }, 
+        (error) => {
+          console.error("Upload failed:", error);
+          alert("File upload failed: " + error.message);
+          setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          if (formType === 'add') {
+            setNewQuestion(prev => ({ ...prev, imageUrl: downloadURL }));
+          } else if (formType === 'edit') {
+            setEditingQuestion(prev => ({ ...prev, imageUrl: downloadURL }));
+          }
+          setUploadProgress(prev => ({ ...prev, [formType]: 100 }));
+          setTimeout(() => {
+            setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+          }, 2000);
+        }
+      );
+    } catch (err) {
+      console.error("Upload setup failed:", err);
+      alert("Error setting up file upload.");
+      setUploadProgress(prev => ({ ...prev, [formType]: 0 }));
+    }
+  };
 
   const openInlineAdd = (q, index) => {
     setNewQuestion({
@@ -209,10 +251,23 @@ const Questions = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image URL (optional)</label>
-          <input type="url" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" placeholder="https://domain.com/diagram.png" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
+          <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image (Upload File - optional)</label>
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={(e) => handleFileUpload(e, 'add')}
+            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" 
+          />
+          {uploadProgress['add'] > 0 && (
+            <div className="w-full bg-slate-100 rounded-full h-1 mt-2">
+              <div className="bg-purple-600 h-1 rounded-full transition-all" style={{ width: `${uploadProgress['add']}%` }}></div>
+            </div>
+          )}
           {newQuestion.imageUrl && (
-            <img src={newQuestion.imageUrl} alt="Diagram preview" className="mt-2 max-h-40 rounded-lg object-contain border" />
+            <div className="mt-2">
+              <p className="text-xs text-emerald-600 font-semibold mb-1">✓ Diagram uploaded successfully</p>
+              <img src={newQuestion.imageUrl} alt="Diagram preview" className="max-h-40 rounded-lg object-contain border bg-slate-50 p-2" />
+            </div>
           )}
         </div>
 
@@ -470,7 +525,9 @@ const Questions = () => {
             <option value="" disabled>No test series available</option>
           ) : (
             testSeriesList.map(series => (
-              <option key={series.id} value={series.id} className="text-slate-700 bg-white py-2">{series.title} ({series.category === 'JEE' ? 'IIT-JEE' : series.category})</option>
+              <option key={series.id} value={series.id} className="text-slate-700 bg-white py-2">
+                {series.title} ({series.category === 'JEE' ? 'IIT-JEE' : series.category}) {series.status === 'draft' ? '[Draft] 📝' : ''}
+              </option>
             ))
           )}
         </select>
@@ -659,10 +716,23 @@ const Questions = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image URL (optional)</label>
-                <input type="url" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700" value={editingQuestion.imageUrl} onChange={(e) => setEditingQuestion({...editingQuestion, imageUrl: e.target.value})} />
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Diagram Image (Upload File - optional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleFileUpload(e, 'edit')}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" 
+                />
+                {uploadProgress['edit'] > 0 && (
+                  <div className="w-full bg-slate-100 rounded-full h-1 mt-2">
+                    <div className="bg-purple-600 h-1 rounded-full transition-all" style={{ width: `${uploadProgress['edit']}%` }}></div>
+                  </div>
+                )}
                 {editingQuestion.imageUrl && (
-                  <img src={editingQuestion.imageUrl} alt="Diagram preview" className="mt-2 max-h-32 rounded-lg object-contain border bg-slate-50" />
+                  <div className="mt-2">
+                    <p className="text-xs text-emerald-600 font-semibold mb-1">✓ Diagram URL: {editingQuestion.imageUrl.substring(0, 50)}...</p>
+                    <img src={editingQuestion.imageUrl} alt="Diagram preview" className="max-h-32 rounded-lg object-contain border bg-slate-50 p-2" />
+                  </div>
                 )}
               </div>
 
