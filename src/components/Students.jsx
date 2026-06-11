@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, query, where, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -93,6 +93,30 @@ const Students = () => {
     } catch (e) {
       console.error("Error updating course access: ", e);
       alert("Failed to update course access.");
+    }
+  };
+
+  const handleDeleteStudent = async (studentId) => {
+    if (!window.confirm("Are you sure you want to remove this student? This will permanently delete their account and test records.")) {
+      return;
+    }
+    try {
+      // Delete user document
+      await deleteDoc(doc(db, "users", studentId));
+      
+      // Delete associated test history
+      const q = query(collection(db, "userTests"), where("userId", "==", studentId));
+      const snap = await getDocs(q);
+      const deletePromises = snap.docs.map(d => deleteDoc(doc(db, "userTests", d.id)));
+      await Promise.all(deletePromises);
+
+      alert("Student removed successfully!");
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+      setSelectedStudent(null);
+      setTestHistory([]);
+    } catch (e) {
+      console.error("Error deleting student: ", e);
+      alert("Failed to delete student.");
     }
   };
 
@@ -216,23 +240,31 @@ const Students = () => {
               {selectedStudent?.id === student.id && (
                 <div className="bg-amber-50 border-x border-b border-amber-200 rounded-b-2xl p-6">
                   {/* Student Details */}
-                  <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6 flex flex-wrap gap-6 text-sm shadow-sm">
-                    <div>
-                      <span className="font-semibold text-amber-800">📱 Contact Number: </span>
-                      <span className="text-slate-700">{selectedStudent.phone || 'Not provided'}</span>
+                  <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6 flex flex-wrap gap-6 justify-between items-center text-sm shadow-sm">
+                    <div className="flex flex-wrap gap-6">
+                      <div>
+                        <span className="font-semibold text-amber-800">📱 Contact Number: </span>
+                        <span className="text-slate-700">{selectedStudent.phone || 'Not provided'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-amber-800">📅 Date of Birth: </span>
+                        <span className="text-slate-700">{selectedStudent.dob || 'Not provided'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-amber-800">✉️ Email: </span>
+                        <span className="text-slate-700">{selectedStudent.email}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-amber-800">🎯 Target Exam: </span>
+                        <span className="text-slate-700">{selectedStudent.targetExam === 'JEE' ? 'IIT-JEE' : (selectedStudent.targetExam || 'IIT-JEE')}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-semibold text-amber-800">📅 Date of Birth: </span>
-                      <span className="text-slate-700">{selectedStudent.dob || 'Not provided'}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-amber-800">✉️ Email: </span>
-                      <span className="text-slate-700">{selectedStudent.email}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-amber-800">🎯 Target Exam: </span>
-                      <span className="text-slate-700">{selectedStudent.targetExam === 'JEE' ? 'IIT-JEE' : (selectedStudent.targetExam || 'IIT-JEE')}</span>
-                    </div>
+                    <button
+                      onClick={() => handleDeleteStudent(selectedStudent.id)}
+                      className="bg-red-500 hover:bg-red-650 text-white font-bold py-2 px-4 rounded-xl shadow transition duration-200 active:scale-95 text-xs flex items-center gap-1.5 cursor-pointer border-none"
+                    >
+                      <span>🗑️</span> Remove Student
+                    </button>
                   </div>
 
                   {/* Course Access Management */}
