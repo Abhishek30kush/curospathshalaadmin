@@ -12,7 +12,6 @@ import Materials from './components/Materials';
 import Students from './components/Students';
 import Notifications from './components/Notifications';
 import Earnings from './components/Earnings';
-import PapersBundles from './components/PapersBundles';
 import QuickNoteWidget from './components/QuickNoteWidget';
 import Forum from './components/Forum';
 
@@ -33,7 +32,6 @@ const Sidebar = ({ userRole }) => {
         <NavLink to="/courses" className={linkClass}>Courses</NavLink>
         <NavLink to="/test-series" className={linkClass}>Test Series</NavLink>
         <NavLink to="/questions" className={linkClass}>Questions Upload</NavLink>
-        <NavLink to="/papers" className={linkClass}>📝 Papers & Bundles</NavLink>
         <NavLink to="/materials" className={linkClass}>Materials</NavLink>
         <div className="h-px bg-slate-700 my-3"></div>
         <NavLink to="/students" className={linkClass}>👥 Students</NavLink>
@@ -523,7 +521,6 @@ const App = () => {
             <Route path="/courses" element={<Courses />} />
             <Route path="/test-series" element={<TestSeries />} />
             <Route path="/questions" element={<Questions />} />
-            <Route path="/papers" element={<PapersBundles />} />
             <Route path="/materials" element={<Materials />} />
             <Route path="/students" element={<Students />} />
             <Route path="/earnings" element={
