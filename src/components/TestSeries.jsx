@@ -20,6 +20,32 @@ const TestSeries = () => {
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState('');
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleShareTest = (seriesId) => {
+    let baseUrl = import.meta.env.VITE_STUDENT_WEB_URL;
+    if (!baseUrl) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        baseUrl = 'http://localhost:5173';
+      } else {
+        const currentOrigin = window.location.origin;
+        if (currentOrigin.includes('admin')) {
+          baseUrl = currentOrigin.replace('admin', 'student');
+        } else {
+          baseUrl = currentOrigin;
+        }
+      }
+    }
+    const shareUrl = `${baseUrl}/test/${seriesId}`;
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopiedId(seriesId);
+        setTimeout(() => setCopiedId(null), 2000);
+      })
+      .catch(err => {
+        console.error("Failed to copy link: ", err);
+      });
+  };
 
   const handleViewLeaderboard = async (seriesId, title) => {
     setSelectedSeriesTitle(title);
@@ -383,6 +409,12 @@ const TestSeries = () => {
               
               <div className="mt-6 flex justify-between items-center pt-4 border-t border-slate-100">
                 <button onClick={() => handleViewLeaderboard(series.id, series.title)} className="text-emerald-600 font-semibold text-sm hover:underline">🏆 Leaderboard</button>
+                <button 
+                  onClick={() => handleShareTest(series.id)} 
+                  className={`font-semibold text-sm hover:underline ${copiedId === series.id ? 'text-emerald-500 font-bold' : 'text-slate-500'}`}
+                >
+                  {copiedId === series.id ? '✅ Copied!' : '🔗 Share Link'}
+                </button>
                 <button onClick={() => navigate('/questions')} className="text-indigo-600 font-semibold text-sm hover:underline">Manage MCQs &rarr;</button>
               </div>
             </div>
