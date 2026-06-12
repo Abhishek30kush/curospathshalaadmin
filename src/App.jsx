@@ -14,6 +14,7 @@ import Notifications from './components/Notifications';
 import Earnings from './components/Earnings';
 import QuickNoteWidget from './components/QuickNoteWidget';
 import Forum from './components/Forum';
+import PapersBundles from './components/PapersBundles';
 
 
 const Sidebar = ({ userRole }) => {
@@ -33,6 +34,7 @@ const Sidebar = ({ userRole }) => {
         <NavLink to="/test-series" className={linkClass}>Test Series</NavLink>
         <NavLink to="/questions" className={linkClass}>Questions Upload</NavLink>
         <NavLink to="/materials" className={linkClass}>Materials</NavLink>
+        <NavLink to="/papers" className={linkClass}>📄 Papers & Bundles</NavLink>
         <div className="h-px bg-slate-700 my-3"></div>
         <NavLink to="/students" className={linkClass}>👥 Students</NavLink>
         {userRole === 'superadmin' && (
@@ -52,7 +54,7 @@ const Sidebar = ({ userRole }) => {
 };
 
 const Dashboard = ({ userRole }) => {
-  const [stats, setStats] = useState({ courses: 0, testSeries: 0, materials: 0, questions: 0, students: 0, notifications: 0 });
+  const [stats, setStats] = useState({ courses: 0, testSeries: 0, materials: 0, questions: 0, students: 0, notifications: 0, papers: 0 });
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
@@ -82,13 +84,14 @@ const Dashboard = ({ userRole }) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [cSnap, tsSnap, mSnap, qSnap, nSnap, smSnap] = await Promise.all([
+        const [cSnap, tsSnap, mSnap, qSnap, nSnap, smSnap, tpSnap] = await Promise.all([
           getCountFromServer(collection(db, "courses")),
           getCountFromServer(collection(db, "testSeries")),
           getCountFromServer(collection(db, "materials")),
           getCountFromServer(collection(db, "questions")),
           getCountFromServer(collection(db, "notifications")),
           getCountFromServer(collection(db, "studyMaterials")),
+          getCountFromServer(collection(db, "testPapers")),
         ]);
 
         const [usersSnap, coursesListSnap] = await Promise.all([
@@ -139,6 +142,7 @@ const Dashboard = ({ userRole }) => {
           questions: qSnap.data().count,
           students: students.length,
           notifications: nSnap.data().count,
+          papers: tpSnap.data().count,
         });
 
         // Load active admins list for superadmin
@@ -241,6 +245,7 @@ const Dashboard = ({ userRole }) => {
     { label: 'Total Courses', value: stats.courses, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Test Series', value: stats.testSeries, color: 'text-indigo-500', bg: 'bg-indigo-50' },
     { label: 'Materials', value: stats.materials, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { label: 'Papers & Bundles', value: stats.papers, color: 'text-cyan-500', bg: 'bg-cyan-50' },
     { label: 'Questions', value: stats.questions, color: 'text-purple-500', bg: 'bg-purple-50' },
     { label: 'Students', value: stats.students, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: 'Notifications', value: stats.notifications, color: 'text-pink-500', bg: 'bg-pink-50' },
@@ -534,6 +539,7 @@ const App = () => {
             } />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/forum" element={<Forum />} />
+            <Route path="/papers" element={<PapersBundles />} />
           </Routes>
         </main>
       </div>
